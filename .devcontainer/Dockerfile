@@ -61,8 +61,6 @@ ARG USER_GID=$USER_UID
 RUN groupadd --gid $USER_GID $USERNAME \
     && useradd --uid $USER_UID --gid $USER_GID -m -s /bin/bash $USERNAME \
     # Allow no-password sudo
-    && apt-get update \
-    && apt-get install -y sudo \
     && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME
     
@@ -96,11 +94,10 @@ RUN mkdir -p $NVM_DIR \
     && nvm cache clear \
     && npm cache clean --force
 
-RUN ln -s $NVM_DIR/versions/node/v${NODEJS_VERSION}*/bin/node /usr/local/bin/node \
-    && ln -s $NVM_DIR/versions/node/v${NODEJS_VERSION}*/bin/npm /usr/local/bin/npm \
-    && ln -s $NVM_DIR/versions/node/v${NODEJS_VERSION}*/bin/npx /usr/local/bin/npx \
-    && ln -s $NVM_DIR/versions/node/v${NODEJS_VERSION}*/bin/claude /usr/local/bin/claude \
-    && ln -s $NVM_DIR/versions/node/v${NODEJS_VERSION}*/bin/gemini /usr/local/bin/gemini
+# Store the actual node version for use in final stage
+RUN . "$NVM_DIR/nvm.sh" \
+    && NODE_VERSION_FULL=$(node --version) \
+    && echo "$NODE_VERSION_FULL" > /opt/nvm/.node_version
 
 # =============================================================================
 FROM debian:12 AS r-layer
@@ -183,11 +180,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # AI tools (node, claude, gemini)
 ENV NVM_DIR=/opt/nvm
 COPY --from=ai-layer /opt/nvm /opt/nvm
-COPY --from=ai-layer /usr/local/bin/node /usr/local/bin/
-COPY --from=ai-layer /usr/local/bin/npm /usr/local/bin/
-COPY --from=ai-layer /usr/local/bin/npx /usr/local/bin/
-COPY --from=ai-layer /usr/local/bin/claude /usr/local/bin/
-COPY --from=ai-layer /usr/local/bin/gemini /usr/local/bin/
+
+# Set up PATH using the actual node version installed
+RUN NODE_VERSION=$(cat /opt/nvm/.node_version) \
+    && NODE_BIN_DIR="/opt/nvm/versions/node/${NODE_VERSION}/bin" \
+    && echo "export PATH=${NODE_BIN_DIR}:\$PATH" >> /etc/profile.d/nodejs.sh \
+    && chmod +x /etc/profile.d/nodejs.sh \
+    # Create symlinks for common commands to work without sourcing profile
+    && ln -s "${NODE_BIN_DIR}/node" /usr/local/bin/node \
+    && ln -s "${NODE_BIN_DIR}/npm" /usr/local/bin/npm \
+    && ln -s "${NODE_BIN_DIR}/npx" /usr/local/bin/npx \
+    && ln -s "${NODE_BIN_DIR}/claude" /usr/local/bin/claude \
+    && ln -s "${NODE_BIN_DIR}/gemini" /usr/local/bin/gemini
 
 # R packages (site-library)
 COPY --from=r-layer /usr/local/lib/R/site-library /usr/local/lib/R/site-library
