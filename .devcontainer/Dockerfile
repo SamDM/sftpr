@@ -108,29 +108,30 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       # Build tools for compiling R packages from source
       build-essential \
       # Undeclared dependencies of various common r packages
+      gfortran \
+      libblas-dev \
       libcurl4-openssl-dev \
       libfontconfig1-dev \
       libfreetype6-dev \
       libfribidi-dev \
       libharfbuzz-dev \
       libjpeg-dev \
+      liblapack-dev \
       libpng-dev \
       libssh-dev \
       libssl-dev \
       libtiff5-dev \
       libxml2-dev \
-      # Undeclared dependencies for DESeq2 and other Bioconductor packages
-      gfortran \
-      libblas-dev \
-      liblapack-dev \
       pandoc \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # R packages: VSCode integration
 # See https://github.com/REditorSupport/vscode-R/issues/1588 for httpgd repo
+# See https://github.com/REditorSupport/vscode-R/issues/1660 for languageserver fix (.lintr ignored)
 RUN <<EOF
-    R -e "install.packages(c('languageserver'), Ncpus=parallel::detectCores())"
+    R -e "install.packages('remotes', Ncpus=parallel::detectCores())"
+    R -e "remotes::install_github('REditorSupport/languageserver@pull/706/head')"
     # plotting support
     R -e "install.packages(
         'httpgd',
