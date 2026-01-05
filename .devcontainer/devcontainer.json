@@ -1,0 +1,23 @@
+{
+  "name": "sftpr",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "remoteUser": "vscode",
+  "mounts": [
+    "source=${localEnv:HOME},target=${localEnv:HOME},type=bind,consistency=cached,readonly"
+  ],
+  "runArgs": [
+    "--network=host"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "mathematic.vscode-pdf",
+        "reditorsupport.r",
+        "rdebugger.r-debugger",
+        "mechatroner.rainbow-csv"
+      ]
+    }
+  }
+}
