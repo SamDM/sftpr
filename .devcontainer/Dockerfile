@@ -192,6 +192,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# Configure SFTP server for testing
+RUN mkdir -p /var/run/sshd \
+    && mkdir -p /sftp/uploads \
+    && useradd -m -s /bin/bash sftpuser \
+    && chown root:root /sftp \
+    && chmod 755 /sftp \
+    && chown sftpuser:sftpuser /sftp/uploads \
+    && chmod 755 /sftp/uploads \
+    && echo -e "\nMatch User sftpuser\n  ForceCommand internal-sftp\n  ChrootDirectory /sftp\n  PermitTunnel no\n  AllowAgentForwarding no\n  AllowTcpForwarding no\n  X11Forwarding no" >> /etc/ssh/sshd_config \
+    # Set up passwordless login for sftpuser
+    && mkdir -p /home/sftpuser/.ssh \
+    && mkdir -p /etc/ssh/sftp_test_keys \
+    && ssh-keygen -t rsa -b 2048 -f /etc/ssh/sftp_test_keys/id_rsa -N "" \
+    && cp /etc/ssh/sftp_test_keys/id_rsa.pub /home/sftpuser/.ssh/authorized_keys \
+    && chown -R sftpuser:sftpuser /home/sftpuser/.ssh \
+    && chmod 700 /home/sftpuser/.ssh \
+    && chmod 600 /home/sftpuser/.ssh/authorized_keys \
+    # Ensure vscode user can read the private key
+    && chmod 644 /etc/ssh/sftp_test_keys/id_rsa
+
+# Generate SSH host keys (needed for sshd to start)
+RUN ssh-keygen -A
+
 # --------------------------------------------------------------------------------------------------
 # Copy software from builder stages
 

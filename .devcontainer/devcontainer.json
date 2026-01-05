@@ -10,6 +10,7 @@
   "runArgs": [
     "--network=host"
   ],
+  "postStartCommand": "sudo /usr/sbin/sshd",
   "customizations": {
     "vscode": {
       "extensions": [
