@@ -169,22 +169,26 @@ USER root
 # R runtime dependencies
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      r-base \
+      gfortran \
+      libblas-dev \
       libcurl4-openssl-dev \
       libfontconfig1-dev \
       libfreetype6-dev \
       libfribidi-dev \
       libharfbuzz-dev \
       libjpeg-dev \
+      liblapack-dev \
       libpng-dev \
       libssh-dev \
       libssl-dev \
       libtiff5-dev \
       libxml2-dev \
-      gfortran \
-      libblas-dev \
-      liblapack-dev \
+      # for detecting old instances of sfpt testing server
+      lsof \
+      # for setting up an SFTP server to do unit testing
+      openssh-server \
       pandoc \
+      r-base \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
