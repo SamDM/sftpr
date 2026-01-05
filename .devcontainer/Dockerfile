@@ -155,6 +155,9 @@ RUN <<EOF
     )"
 EOF
 
+# R packages: project dependencies
+RUN R -e "install.packages(c('devtools', 'usethis'), Ncpus=parallel::detectCores())"
+
 # ==================================================================================================
 FROM opinionated-dev-setup AS final
 # ==================================================================================================
