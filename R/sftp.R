@@ -25,7 +25,7 @@ sftp_parse_url <- function(sftp_url) {
 #' @param port Optional SFTP port number (default: NULL uses standard port 22)
 #' @param ssh_key_path Optional path to SSH private key file for authentication
 #' @param error_msg Error message prefix on failure
-#' @return Invisible NULL on success, stops with error on failure
+#' @return Invisible character vector of command output on success, stops with error on failure
 sftp_batch <- function(commands, user, host, port = NULL, ssh_key_path = NULL,
                        error_msg = "SFTP command failed") {
   batch_file <- tempfile(fileext = ".sftp")
@@ -59,7 +59,7 @@ sftp_batch <- function(commands, user, host, port = NULL, ssh_key_path = NULL,
     ))
   }
 
-  invisible(NULL)
+  invisible(result)
 }
 
 #' Upload a local file to an SFTP server
@@ -387,30 +387,14 @@ sftp_chmod <- function(sftp_url, mode, ssh_key_path = NULL) {
 sftp_ls <- function(sftp_url, ssh_key_path = NULL) {
   parsed <- sftp_parse_url(sftp_url)
 
-  batch_file <- tempfile(fileext = ".sftp")
-  on.exit(unlink(batch_file), add = TRUE)
-
-  writeLines(c(sprintf("ls %s", parsed$remote_path), "bye"), batch_file)
-
-  sftp_args <- c("-b", batch_file)
-  if (!is.null(parsed$port)) {
-    sftp_args <- c(sftp_args, "-P", as.character(parsed$port))
-  }
-  if (!is.null(ssh_key_path)) {
-    sftp_args <- c(sftp_args, "-i", ssh_key_path)
-  }
-  sftp_args <- c(sftp_args, sprintf("%s@%s", parsed$user, parsed$host))
-
-  result <- system2("sftp", args = sftp_args, stdout = TRUE, stderr = TRUE)
-
-  exit_status <- attr(result, "status")
-  if (!is.null(exit_status) && exit_status != 0) {
-    stop(sprintf(
-      "SFTP ls failed (exit code %d):\n%s",
-      exit_status,
-      paste(result, collapse = "\n")
-    ))
-  }
+  result <- sftp_batch(
+    commands = sprintf("ls %s", parsed$remote_path),
+    user = parsed$user,
+    host = parsed$host,
+    port = parsed$port,
+    ssh_key_path = ssh_key_path,
+    error_msg = "SFTP ls failed"
+  )
 
   # Parse output: skip header lines, extract filenames
   # Output returns full paths, multiple per line separated by whitespace
