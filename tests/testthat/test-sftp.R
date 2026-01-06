@@ -143,6 +143,27 @@ test_that("sftp_stat returns file metadata", {
   expect_true(nzchar(info$permissions))
   expect_true(nzchar(info$mtime))
   expect_equal(info$name, "stat_test.txt")
+  expect_false(info$is_dir)
+})
+
+test_that("sftp_stat returns NULL for non-existent file", {
+  remote_url <- sftp_test_url("nonexistent_file_12345.txt")
+  info <- sftp_stat(remote_url)
+  expect_null(info)
+})
+
+test_that("sftp_stat returns metadata for directories", {
+  dir_url <- sftp_test_url("stat_dir_test")
+  sftp_mkdir(dir_url)
+
+  info <- sftp_stat(dir_url)
+
+  expect_type(info, "list")
+  expect_match(info$permissions, "^d")
+  expect_equal(info$name, "stat_dir_test")
+  expect_true(info$is_dir)
+
+  sftp_rmdir(dir_url)
 })
 
 test_that("sftp_chmod changes file permissions", {

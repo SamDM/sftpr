@@ -411,7 +411,7 @@ sftp_ls <- function(sftp_url, ssh_key_path = NULL) {
 #'
 #' @param sftp_url SFTP URL in format: sftp://user@host/path/to/file
 #' @param ssh_key_path Optional path to SSH private key file for authentication
-#' @return List with: name, size, mtime, permissions; or NULL if file not found
+#' @return List with: name, size, mtime, permissions, is_dir; or NULL if not found
 #'
 #' @examples
 #' \dontrun{
@@ -423,44 +423,82 @@ sftp_ls <- function(sftp_url, ssh_key_path = NULL) {
 #' @export
 sftp_stat <- function(sftp_url, ssh_key_path = NULL) {
   parsed <- sftp_parse_url(sftp_url)
+  target_name <- basename(parsed$remote_path)
 
-  batch_file <- tempfile(fileext = ".sftp")
-  on.exit(unlink(batch_file), add = TRUE)
-
-  writeLines(c(sprintf("ls -l %s", parsed$remote_path), "bye"), batch_file)
-
-  sftp_args <- c("-b", batch_file)
-  if (!is.null(parsed$port)) {
-    sftp_args <- c(sftp_args, "-P", as.character(parsed$port))
-  }
-  if (!is.null(ssh_key_path)) {
-    sftp_args <- c(sftp_args, "-i", ssh_key_path)
-  }
-  sftp_args <- c(sftp_args, sprintf("%s@%s", parsed$user, parsed$host))
-
-  result <- system2("sftp", args = sftp_args, stdout = TRUE, stderr = TRUE)
-
-  exit_status <- attr(result, "status")
-  if (!is.null(exit_status) && exit_status != 0) {
-    if (grepl("not found|No such file", paste(result, collapse = "\n"), ignore.case = TRUE)) {
-      return(NULL)
+  # First try ls -l <path> which works for files
+  result <- withCallingHandlers(
+    tryCatch(
+      sftp_batch(
+        commands = sprintf("ls -l %s", parsed$remote_path),
+        user = parsed$user,
+        host = parsed$host,
+        port = parsed$port,
+        ssh_key_path = ssh_key_path,
+        error_msg = "SFTP stat failed"
+      ),
+      error = function(e) {
+        if (grepl("not found|No such file", e$message, ignore.case = TRUE)) {
+          return(NULL)
+        }
+        stop(e)
+      }
+    ),
+    warning = function(w) {
+      if (grepl("had status 1", w$message, ignore.case = TRUE)) {
+        invokeRestart("muffleWarning")
+      }
     }
-    stop(sprintf(
-      "SFTP stat failed (exit code %d):\n%s",
-      exit_status,
-      paste(result, collapse = "\n")
-    ))
-  }
+  )
 
-  # Parse ls -l output: -rw-r--r--    1 user group  size Mon DD HH:MM filename
+  if (is.null(result)) return(NULL)
+
+  # Parse ls -l output
   lines <- result[!grepl("^sftp>", result)]
   lines <- trimws(lines)
   lines <- lines[nzchar(lines)]
 
-  if (length(lines) == 0) return(NULL)
-
-  # Find the line with file info (starts with permission string like -rw or drw)
+  # For files, we get a single line with file info
+  # For directories, ls -l lists contents (empty for empty dirs)
+  # Find line with file info starting with permission string
   info_line <- lines[grepl("^[-dlrwxs]", lines)][1]
+
+  # If no info line found (empty directory case), try ls -l <path>/..
+  if (is.na(info_line)) {
+    result <- withCallingHandlers(
+      tryCatch(
+        sftp_batch(
+          commands = sprintf("ls -l %s/..", parsed$remote_path),
+          user = parsed$user,
+          host = parsed$host,
+          port = parsed$port,
+          ssh_key_path = ssh_key_path,
+          error_msg = "SFTP stat failed"
+        ),
+        error = function(e) {
+          if (grepl("not found|No such file", e$message, ignore.case = TRUE)) {
+            return(NULL)
+          }
+          stop(e)
+        }
+      ),
+      warning = function(w) {
+        if (grepl("had status 1", w$message, ignore.case = TRUE)) {
+          invokeRestart("muffleWarning")
+        }
+      }
+    )
+
+    if (is.null(result)) return(NULL)
+
+    lines <- result[!grepl("^sftp>", result)]
+    lines <- trimws(lines)
+    lines <- lines[nzchar(lines)]
+
+    # Find line matching our target (ends with /target_name)
+    target_pattern <- sprintf("/%s$", target_name)
+    info_line <- lines[grepl(target_pattern, lines)][1]
+  }
+
   if (is.na(info_line)) return(NULL)
 
   parts <- strsplit(info_line, "\\s+")[[1]]
@@ -471,7 +509,8 @@ sftp_stat <- function(sftp_url, ssh_key_path = NULL) {
     permissions = parts[1],
     size = as.numeric(parts[5]),
     mtime = paste(parts[6:8], collapse = " "),
-    name = basename(paste(parts[9:length(parts)], collapse = " "))
+    name = basename(paste(parts[9:length(parts)], collapse = " ")),
+    is_dir = grepl("^d", parts[1])
   )
 }
 
