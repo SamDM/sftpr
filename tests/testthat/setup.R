@@ -5,6 +5,10 @@ sftp_test_remote_dir <- function() {
   "/tmp/sftpr-tests"
 }
 
+sftp_test_url <- function(filename) {
+  sprintf("sftp://vscode@localhost:2222%s/%s", sftp_test_remote_dir(), filename)
+}
+
 sftp_setup <- function(port = 2222) {
   remote_dir <- sftp_test_remote_dir()
 
