@@ -33,13 +33,28 @@ test_that("sftp_writer and sftp_reader round-trip works with writeLines/readLine
 
   # Write to SFTP using wrapped writeLines
   write_lines_sftp <- sftp_writer(writeLines, con)
-  write_lines_sftp(text = content, con = remote_url)
+  write_lines_sftp(content, remote_url)
 
   # Read back using wrapped readLines
   read_lines_sftp <- sftp_reader(readLines, con)
   result <- read_lines_sftp(remote_url)
 
   expect_equal(result, content)
+})
+
+test_that("sftp_writer and sftp_reader round-trip works with saveRDS/readRDS", {
+  data <- list(a = 1:3, b = "test", c = data.frame(x = 1:2, y = c("a", "b")))
+  remote_url <- sftp_test_url("wrapper_roundtrip.rds")
+
+  # Write to SFTP using wrapped saveRDS
+  save_rds_sftp <- sftp_writer(saveRDS)
+  save_rds_sftp(data, remote_url)
+
+  # Read back using wrapped readRDS
+  read_rds_sftp <- sftp_reader(readRDS)
+  result <- read_rds_sftp(remote_url)
+
+  expect_equal(result, data)
 })
 
 test_that("sftp_reader passes additional arguments to wrapped function", {
