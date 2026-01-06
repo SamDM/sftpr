@@ -154,6 +154,64 @@ sftp://user@host/path/to/file
 sftp://user@host:port/path/to/file  # with optional port
 ```
 
+## SFTP Test Server Setup
+
+The devcontainer includes a pre-configured SFTP server for running integration tests against real SFTP operations. This eliminates the need for external servers or mocking.
+
+### How It Works
+
+**Server**: OpenSSH server running on port 2222
+- Started automatically via `postStartCommand` in devcontainer.json: `sudo /usr/sbin/sshd -p 2222`
+- Runs as a background daemon whenever the container starts
+
+**Authentication**: Passwordless SSH key authentication
+- SSH keypair is pre-generated at container build time for the `vscode` user
+- Keys located at `/home/vscode/.ssh/id_rsa` (private) and `/home/vscode/.ssh/authorized_keys` (public)
+- No password prompts during test execution
+
+**SSH Client Configuration**: Located at `/home/vscode/.ssh/config`
+- `StrictHostKeyChecking no` - Disables host key verification prompts for localhost
+- `UserKnownHostsFile /dev/null` - Prevents known_hosts file accumulation
+- `LogLevel ERROR` - Reduces noise in test output
+
+### Test Infrastructure
+
+Tests use helper functions defined in `tests/testthat/setup.R`:
+
+- **`sftp_test_remote_dir()`**: Returns the test directory path (`/tmp/sftpr-tests`)
+- **`sftp_setup(port = 2222)`**: Creates test directory and performs a health check
+- **`sftp_cleanup()`**: Removes test directory after tests complete
+
+The setup runs automatically before tests and cleanup is registered via `withr::defer()`.
+
+### Test URL Format
+
+Tests connect to the local SFTP server using:
+```
+sftp://vscode@localhost:2222/tmp/sftpr-tests/filename.txt
+```
+
+### Troubleshooting
+
+**Server not running**: If tests fail to connect, verify the SSH daemon is running:
+```bash
+ps aux | grep sshd
+# If not running, start it:
+sudo /usr/sbin/sshd -p 2222
+```
+
+**Port conflict**: Use `lsof` (installed in container) to check for old server instances:
+```bash
+sudo lsof -i :2222
+```
+
+**Permission issues**: Ensure SSH key permissions are correct:
+```bash
+chmod 700 ~/.ssh
+chmod 600 ~/.ssh/id_rsa
+chmod 600 ~/.ssh/authorized_keys
+```
+
 ## Testing Locally
 
 To test the package interactively:
