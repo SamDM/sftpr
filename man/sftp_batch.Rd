@@ -4,7 +4,14 @@
 \alias{sftp_batch}
 \title{Execute an SFTP batch command}
 \usage{
-sftp_batch(commands, user, host, error_msg = "SFTP command failed")
+sftp_batch(
+  commands,
+  user,
+  host,
+  port = NULL,
+  ssh_key_path = NULL,
+  error_msg = "SFTP command failed"
+)
 }
 \arguments{
 \item{commands}{Character vector of SFTP commands}

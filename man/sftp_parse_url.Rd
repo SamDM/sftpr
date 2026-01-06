@@ -7,7 +7,7 @@
 sftp_parse_url(sftp_url)
 }
 \arguments{
-\item{sftp_url}{SFTP URL in format: sftp://user @host/path/to/file}
+\item{sftp_url}{SFTP URL in format: sftp://user@host/path/to/file}
 }
 \value{
 List with user, host, remote_path

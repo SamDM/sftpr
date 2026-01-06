@@ -4,12 +4,12 @@
 \alias{sftp_put}
 \title{Upload a local file to an SFTP server}
 \usage{
-sftp_put(local_path, sftp_url)
+sftp_put(local_path, sftp_url, ssh_key_path = NULL)
 }
 \arguments{
 \item{local_path}{Path to the local file to upload}
 
-\item{sftp_url}{SFTP URL in format: sftp://user @host/path/to/file}
+\item{sftp_url}{SFTP URL in format: sftp://user@host/path/to/file}
 }
 \value{
 Invisible NULL on success, stops with error on failure

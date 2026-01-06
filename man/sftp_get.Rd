@@ -4,10 +4,10 @@
 \alias{sftp_get}
 \title{Download a file from an SFTP server}
 \usage{
-sftp_get(sftp_url, local_path)
+sftp_get(sftp_url, local_path, ssh_key_path = NULL)
 }
 \arguments{
-\item{sftp_url}{SFTP URL in format: sftp://user @host/path/to/file}
+\item{sftp_url}{SFTP URL in format: sftp://user@host/path/to/file}
 
 \item{local_path}{Path to save the downloaded file}
 }

@@ -1,11 +1,11 @@
 #' Parse an SFTP URL into components
 #'
-#' @param sftp_url SFTP URL in format: sftp://user @host/path/to/file
+#' @param sftp_url SFTP URL in format: sftp://user@host/path/to/file
 #' @return List with user, host, remote_path
 sftp_parse_url <- function(sftp_url) {
-  url_pattern <- "^sftp://([^ @]+) @([^/:]+)(:([0-9]+))?(/.*)$" # Added optional port group
+  url_pattern <- "^sftp://([^@]+)@([^/:]+)(:([0-9]+))?(/.*)$"
   if (!grepl(url_pattern, sftp_url)) {
-    stop("Invalid SFTP URL format. Expected: sftp://user @host[:port]/path/to/file")
+    stop("Invalid SFTP URL format. Expected: sftp://user@host[:port]/path/to/file")
   }
 
   list(
@@ -36,7 +36,7 @@ sftp_batch <- function(commands, user, host, port = NULL, ssh_key_path = NULL, e
   if (!is.null(ssh_key_path)) {
     sftp_args <- c(sftp_args, "-i", ssh_key_path)
   }
-  sftp_args <- c(sftp_args, sprintf("%s @%s", user, host))
+  sftp_args <- c(sftp_args, sprintf("%s@%s", user, host))
 
   result <- system2(
     "sftp",
@@ -61,7 +61,7 @@ sftp_batch <- function(commands, user, host, port = NULL, ssh_key_path = NULL, e
 #' Upload a local file to an SFTP server
 #'
 #' @param local_path Path to the local file to upload
-#' @param sftp_url SFTP URL in format: sftp://user @host/path/to/file
+#' @param sftp_url SFTP URL in format: sftp://user@host/path/to/file
 #' @return Invisible NULL on success, stops with error on failure
 #'
 #' @export
@@ -82,7 +82,7 @@ sftp_put <- function(local_path, sftp_url, ssh_key_path = NULL) {
 
 #' Download a file from an SFTP server
 #'
-#' @param sftp_url SFTP URL in format: sftp://user @host/path/to/file
+#' @param sftp_url SFTP URL in format: sftp://user@host/path/to/file
 #' @param local_path Path to save the downloaded file
 #' @return Invisible NULL on success, stops with error on failure
 #'
@@ -142,7 +142,7 @@ sftp_get <- function(sftp_url, local_path, ssh_key_path = NULL) {
 #' @examples
 #' \dontrun{
 #' write_tsv_sftp <- sftp_writer(readr::write_tsv)
-#' write_tsv_sftp(my_df, "sftp://user @host/path/to/data.tsv.gz")
+#' write_tsv_sftp(my_df, "sftp://user@host/path/to/data.tsv.gz")
 #' write_tsv_sftp(my_df, "/local/path/data.tsv")  # Also works locally
 #' }
 #'
@@ -195,7 +195,7 @@ sftp_writer <- function(fn, path_arg = NULL) {
 #' @examples
 #' \dontrun{
 #' read_tsv_sftp <- sftp_reader(readr::read_tsv)
-#' read_tsv_sftp("sftp://user @host/path/to/data.tsv.gz")
+#' read_tsv_sftp("sftp://user@host/path/to/data.tsv.gz")
 #' read_tsv_sftp("/local/path/data.tsv")  # Also works locally
 #' }
 #'

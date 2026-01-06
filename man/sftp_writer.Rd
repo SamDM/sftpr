@@ -23,7 +23,7 @@ SFTP URLs. Local paths are passed through unchanged to the original function.
 \examples{
 \dontrun{
 write_tsv_sftp <- sftp_writer(readr::write_tsv)
-write_tsv_sftp(my_df, "sftp://user @host/path/to/data.tsv.gz")
+write_tsv_sftp(my_df, "sftp://user@host/path/to/data.tsv.gz")
 write_tsv_sftp(my_df, "/local/path/data.tsv")  # Also works locally
 }
 

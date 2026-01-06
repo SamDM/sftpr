@@ -23,7 +23,7 @@ SFTP URLs. Local paths are passed through unchanged to the original function.
 \examples{
 \dontrun{
 read_tsv_sftp <- sftp_reader(readr::read_tsv)
-read_tsv_sftp("sftp://user @host/path/to/data.tsv.gz")
+read_tsv_sftp("sftp://user@host/path/to/data.tsv.gz")
 read_tsv_sftp("/local/path/data.tsv")  # Also works locally
 }
 

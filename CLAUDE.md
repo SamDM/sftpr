@@ -145,8 +145,6 @@ sftp://user@host/path/to/file
 sftp://user@host:port/path/to/file  # with optional port
 ```
 
-Note: There's a space before the `@` in the current implementation (e.g., `user @host`).
-
 ## Testing Locally
 
 To test the package interactively:
