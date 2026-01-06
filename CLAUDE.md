@@ -21,13 +21,14 @@ When working on this package, you MUST follow this iterative cycle:
 1. **Edit** code or tests
 2. **Load** with `devtools::load_all()` - simulates package installation for rapid testing
 3. **Document** with `devtools::document()` - generates `.Rd` files from roxygen comments
-4. **Test** with `devtools::test()` - runs the test suite
-5. **Build README** with `devtools::build_readme()` - renders README.Rmd to README.md (do this after editing README.Rmd)
-6. **Check** with `devtools::check()` - validates package integrity with R CMD check
+4. **Lint** with `devtools::lint()` - checks code style and potential issues
+5. **Test** with `devtools::test()` - runs the test suite
+6. **Build README** with `devtools::build_readme()` - renders README.Rmd to README.md (do this after editing README.Rmd)
+7. **Check** with `devtools::check()` - validates package integrity with R CMD check
 
 ### Critical Quality Assurance Commands
 
-These three devtools functions are **mandatory** for ensuring code quality:
+These four devtools functions are **mandatory** for ensuring code quality:
 
 #### 1. `devtools::document()`
 - Converts roxygen2 comments (`#'`) into proper `.Rd` documentation files
@@ -35,13 +36,20 @@ These three devtools functions are **mandatory** for ensuring code quality:
 - **Run this after**: Adding/modifying any roxygen comments or exported functions
 - Never manually edit `NAMESPACE` or files in `man/`
 
-#### 2. `devtools::test()`
+#### 2. `devtools::lint()`
+- Runs static code analysis using lintr (configured in `.lintr`)
+- Checks for style issues (line length, trailing whitespace, etc.)
+- Detects potential bugs like unused variables
+- **Run this after**: `devtools::document()`, before testing
+- Fix all warnings and style issues before proceeding
+
+#### 3. `devtools::test()`
 - Runs all tests in `tests/testthat/`
 - Provides immediate feedback on whether changes break existing functionality
 - **Run this**: Frequently during development, before any commit
 - All tests must pass before considering work complete
 
-#### 3. `devtools::check()`
+#### 4. `devtools::check()`
 - Runs comprehensive R CMD check validation
 - Checks for common package problems, documentation issues, and CRAN compliance
 - **Run this**: Before committing significant changes, always before creating PRs
@@ -124,9 +132,10 @@ Before any commit, you MUST ensure:
 1. ✓ Code follows style guidelines (max 100 char lines)
 2. ✓ All functions are documented with roxygen2
 3. ✓ `devtools::document()` has been run successfully
-4. ✓ `devtools::test()` passes with no failures
-5. ✓ `devtools::check()` completes with no ERRORs or WARNINGs
-6. ✓ If README.Rmd was modified, run `devtools::build_readme()`
+4. ✓ `devtools::lint()` passes with no warnings or style issues
+5. ✓ `devtools::test()` passes with no failures
+6. ✓ `devtools::check()` completes with no ERRORs or WARNINGs
+7. ✓ If README.Rmd was modified, run `devtools::build_readme()`
 
 ## Common Pitfalls to Avoid
 
@@ -171,6 +180,6 @@ write_csv_sftp(mtcars, "sftp://user@host/data.csv")
 
 ## Remember
 
-**Quality comes from the development cycle**: edit → `load_all()` → `document()` → `test()` → `check()`
+**Quality comes from the development cycle**: edit → `load_all()` → `document()` → `lint()` → `test()` → `check()`
 
 Run these commands frequently, not just before commits. The faster you catch issues, the easier they are to fix.

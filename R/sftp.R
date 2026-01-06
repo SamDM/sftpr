@@ -8,10 +8,11 @@ sftp_parse_url <- function(sftp_url) {
     stop("Invalid SFTP URL format. Expected: sftp://user@host[:port]/path/to/file")
   }
 
+  port_str <- sub(url_pattern, "\\4", sftp_url)
   list(
     user = sub(url_pattern, "\\1", sftp_url),
     host = sub(url_pattern, "\\2", sftp_url),
-    port = if (nzchar(sub(url_pattern, "\\4", sftp_url))) as.integer(sub(url_pattern, "\\4", sftp_url)) else NULL,
+    port = if (nzchar(port_str)) as.integer(port_str) else NULL,
     remote_path = sub(url_pattern, "\\5", sftp_url)
   )
 }
@@ -23,7 +24,8 @@ sftp_parse_url <- function(sftp_url) {
 #' @param host SFTP host
 #' @param error_msg Error message prefix on failure
 #' @return Invisible NULL on success, stops with error on failure
-sftp_batch <- function(commands, user, host, port = NULL, ssh_key_path = NULL, error_msg = "SFTP command failed") {
+sftp_batch <- function(commands, user, host, port = NULL, ssh_key_path = NULL,
+                       error_msg = "SFTP command failed") {
   batch_file <- tempfile(fileext = ".sftp")
   on.exit(unlink(batch_file), add = TRUE)
 
@@ -155,11 +157,9 @@ sftp_writer <- function(fn, path_arg = NULL) {
   path_arg <- .resolve_path_arg(fn, substitute(path_arg), missing(path_arg))
 
   function(...) {
-    # Capture all arguments for the wrapped function AND extra args
-    all_args <- list(...)
     call_args <- as.list(match.call(fn, call = match.call()))[-1]
     call_args <- lapply(call_args, eval, envir = parent.frame())
-    
+
     file_path <- call_args[[path_arg]]
 
     # Local paths: pass through to original function
