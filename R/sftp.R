@@ -184,50 +184,54 @@ sftp_writer <- function(fn, path_arg = NULL) {
   }
 }
 
-#' Check if a file or directory exists on an SFTP server
+#' Wrap an R function that reads from a file, such that it works over SFTP
 #'
-#' @param sftp_url SFTP URL in format: sftp://user@host/path/to/file
-#' @param ssh_key_path Optional path to SSH private key file for authentication
-#' @return TRUE if the file/directory exists, FALSE otherwise
+#' Creates a wrapper around a file-reading function that transparently handles
+#' SFTP URLs. Local paths are passed through unchanged to the original function.
+#'
+#' @param fn A function that reads from a file (e.g., readr::read_tsv, readRDS)
+#' @param path_arg The name of the file path argument in fn. Can be unquoted or
+#'   a string. If NULL (default), auto-detects the first argument containing
+#'   "file" or "path" in its name.
+#' @return A wrapped function with the same signature as fn
 #'
 #' @examples
 #' \dontrun{
-#' sftp_exists("sftp://user@host/path/to/file.txt")
-#' sftp_exists("sftp://user@host/path/to/directory")
+#' read_tsv_sftp <- sftp_reader(readr::read_tsv)
+#' read_tsv_sftp("sftp://user@host/path/to/data.tsv.gz")
+#' read_tsv_sftp("/local/path/data.tsv")  # Also works locally
 #' }
 #'
+#' # Explicit path_arg (unquoted or quoted)
+#' readRDS_sftp <- sftp_reader(readRDS, file)
+#' readRDS_sftp <- sftp_reader(readRDS, "file")
+#'
 #' @export
-sftp_exists <- function(sftp_url, ssh_key_path = NULL) {
-  parsed <- sftp_parse_url(sftp_url)
+sftp_reader <- function(fn, path_arg = NULL) {
+  path_arg <- .resolve_path_arg(fn, substitute(path_arg), missing(path_arg))
 
-  withCallingHandlers(
-    tryCatch(
-      {
-        sftp_batch(
-          sprintf("ls %s", parsed$remote_path),
-          parsed$user,
-          parsed$host,
-          parsed$port,
-          ssh_key_path = ssh_key_path,
-          error_msg = "SFTP exists check failed"
-        )
-        TRUE
-      },
-      error = function(e) {
-        if (grepl("not found|No such file", e$message, ignore.case = TRUE)) {
-          FALSE
-        } else {
-          stop(e)
-        }
-      }
-    ),
-    warning = function(w) {
-      # Suppress "had status 1" warnings from system2 (expected for non-existent files)
-      if (grepl("had status 1", w$message, ignore.case = TRUE)) {
-        invokeRestart("muffleWarning")
-      }
+  function(...) {
+    # Capture and evaluate all arguments
+    call_args <- as.list(match.call(fn, call = match.call()))[-1]
+    call_args <- lapply(call_args, eval, envir = parent.frame())
+
+    file_path <- call_args[[path_arg]]
+
+    # Local paths: pass through to original function
+    if (!grepl("^sftp://", file_path)) {
+      return(fn(...))
     }
-  )
+
+    # SFTP: download to temp file, then read
+    remote_path <- sftp_parse_url(file_path)$remote_path
+    temp_file <- tempfile(fileext = basename(remote_path))
+    on.exit(unlink(temp_file), add = TRUE)
+
+    sftp_get(file_path, temp_file)
+
+    call_args[[path_arg]] <- temp_file
+    rlang::exec(fn, !!!call_args)
+  }
 }
 
 #' Delete a file on an SFTP server
@@ -487,52 +491,48 @@ sftp_stat <- function(sftp_url, ssh_key_path = NULL) {
   )
 }
 
-#' Wrap an R function that reads from a file, such that it works over SFTP
+#' Check if a file or directory exists on an SFTP server
 #'
-#' Creates a wrapper around a file-reading function that transparently handles
-#' SFTP URLs. Local paths are passed through unchanged to the original function.
-#'
-#' @param fn A function that reads from a file (e.g., readr::read_tsv, readRDS)
-#' @param path_arg The name of the file path argument in fn. Can be unquoted or
-#'   a string. If NULL (default), auto-detects the first argument containing
-#'   "file" or "path" in its name.
-#' @return A wrapped function with the same signature as fn
+#' @param sftp_url SFTP URL in format: sftp://user@host/path/to/file
+#' @param ssh_key_path Optional path to SSH private key file for authentication
+#' @return TRUE if the file/directory exists, FALSE otherwise
 #'
 #' @examples
 #' \dontrun{
-#' read_tsv_sftp <- sftp_reader(readr::read_tsv)
-#' read_tsv_sftp("sftp://user@host/path/to/data.tsv.gz")
-#' read_tsv_sftp("/local/path/data.tsv")  # Also works locally
+#' sftp_exists("sftp://user@host/path/to/file.txt")
+#' sftp_exists("sftp://user@host/path/to/directory")
 #' }
 #'
-#' # Explicit path_arg (unquoted or quoted)
-#' readRDS_sftp <- sftp_reader(readRDS, file)
-#' readRDS_sftp <- sftp_reader(readRDS, "file")
-#'
 #' @export
-sftp_reader <- function(fn, path_arg = NULL) {
-  path_arg <- .resolve_path_arg(fn, substitute(path_arg), missing(path_arg))
+sftp_exists <- function(sftp_url, ssh_key_path = NULL) {
+  parsed <- sftp_parse_url(sftp_url)
 
-  function(...) {
-    # Capture and evaluate all arguments
-    call_args <- as.list(match.call(fn, call = match.call()))[-1]
-    call_args <- lapply(call_args, eval, envir = parent.frame())
-
-    file_path <- call_args[[path_arg]]
-
-    # Local paths: pass through to original function
-    if (!grepl("^sftp://", file_path)) {
-      return(fn(...))
+  withCallingHandlers(
+    tryCatch(
+      {
+        sftp_batch(
+          sprintf("ls %s", parsed$remote_path),
+          parsed$user,
+          parsed$host,
+          parsed$port,
+          ssh_key_path = ssh_key_path,
+          error_msg = "SFTP exists check failed"
+        )
+        TRUE
+      },
+      error = function(e) {
+        if (grepl("not found|No such file", e$message, ignore.case = TRUE)) {
+          FALSE
+        } else {
+          stop(e)
+        }
+      }
+    ),
+    warning = function(w) {
+      # Suppress "had status 1" warnings from system2 (expected for non-existent files)
+      if (grepl("had status 1", w$message, ignore.case = TRUE)) {
+        invokeRestart("muffleWarning")
+      }
     }
-
-    # SFTP: download to temp file, then read
-    remote_path <- sftp_parse_url(file_path)$remote_path
-    temp_file <- tempfile(fileext = basename(remote_path))
-    on.exit(unlink(temp_file), add = TRUE)
-
-    sftp_get(file_path, temp_file)
-
-    call_args[[path_arg]] <- temp_file
-    rlang::exec(fn, !!!call_args)
-  }
+  )
 }
