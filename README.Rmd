@@ -18,38 +18,125 @@ knitr::opts_chunk$set(
 <!-- badges: start -->
 <!-- badges: end -->
 
-The goal of sftpr is to ...
+**sftpr** is an R package that provides wrappers to work with SFTP connections. Its killer feature is the ability to wrap any R function that reads or writes files, making it transparently work with SFTP URLs.
 
 ## Installation
 
 You can install the development version of sftpr from [GitHub](https://github.com/) with:
 
-``` r
+```r
 # install.packages("pak")
 pak::pak("SamDM/sftpr")
 ```
 
-## Example
+## The Power of `sftp_reader()` and `sftp_writer()`
 
-This is a basic example which shows you how to solve a common problem:
+The main feature of sftpr is wrapping existing R functions to work seamlessly with SFTP URLs. You write code as if files were local, and sftpr handles the transfer behind the scenes.
 
-```{r example}
+```{r setup, include = FALSE}
+# Setup: ensure clean test directory
 library(sftpr)
-## basic example code
+test_dir <- "/tmp/sftpr-readme-demo"
+unlink(test_dir, recursive = TRUE)
+dir.create(test_dir, showWarnings = FALSE)
+
+# Base URL for demo (using local SFTP server)
+sftp_base <- "sftp://vscode@localhost:2222/tmp/sftpr-readme-demo"
 ```
 
-What is special about using `README.Rmd` instead of just `README.md`? You can include R chunks like so:
+### Creating Wrapped Functions
 
-```{r cars}
-summary(cars)
+Wrap any file I/O function once, then use it everywhere:
+
+```{r wrapped-functions}
+library(sftpr)
+
+# Create SFTP-enabled versions of common functions
+saveRDS_sftp <- sftp_writer(saveRDS)
+readRDS_sftp <- sftp_reader(readRDS)
+
+# Use them just like the originals, but with SFTP URLs
+sftp_url <- "sftp://vscode@localhost:2222/tmp/sftpr-readme-demo/data.rds"
+
+invisible(saveRDS_sftp(mtcars, sftp_url))
+remote_data <- readRDS_sftp(sftp_url)
+
+head(remote_data)
 ```
 
-You'll still need to render `README.Rmd` regularly, to keep `README.md` up-to-date. `devtools::build_readme()` is handy for this.
+### One-Off Usage (No Named Function Needed)
 
-You can also embed plots, for example:
+For quick operations, chain the wrapper and call directly:
 
-```{r pressure, echo = FALSE}
-plot(pressure)
+```{r one-off}
+# Write a CSV to SFTP in one line
+invisible(sftp_writer(write.table)(
+  iris,
+  "sftp://vscode@localhost:2222/tmp/sftpr-readme-demo/iris.csv",
+  sep = ",",
+  row.names = FALSE
+))
+
+# Read it back
+iris_remote <- sftp_reader(read.csv)("sftp://vscode@localhost:2222/tmp/sftpr-readme-demo/iris.csv")
+head(iris_remote)
 ```
 
-In that case, don't forget to commit and push the resulting figure files, so they display on GitHub and CRAN.
+### Works with Any File I/O Function
+
+The wrappers auto-detect the path argument, or you can specify it explicitly:
+
+```{r explicit-path-arg, eval = FALSE}
+# Auto-detection works for most functions
+sftp_writer(readr::write_tsv)(df, "sftp://user@host/data.tsv")
+
+# Explicit path argument when needed
+sftp_writer(saveRDS, file)(obj, "sftp://user@host/data.rds")
+sftp_reader(readRDS, "file")("sftp://user@host/data.rds")
+```
+
+## All SFTP Functions
+
+| Function | Description |
+|----------|-------------|
+| `sftp_reader()` | Wrap a file-reading function for SFTP support |
+| `sftp_writer()` | Wrap a file-writing function for SFTP support |
+| `sftp_get()` | Download a file from SFTP server |
+| `sftp_put()` | Upload a file to SFTP server |
+| `sftp_ls()` | List files in a remote directory |
+| `sftp_stat()` | Get file metadata (size, mtime, permissions) |
+| `sftp_exists()` | Check if a file or directory exists |
+| `sftp_delete()` | Delete a file |
+| `sftp_mkdir()` | Create a directory |
+| `sftp_rmdir()` | Remove an empty directory |
+| `sftp_rename()` | Rename or move a file |
+| `sftp_chmod()` | Change file permissions |
+
+## File Metadata with `sftp_stat()`
+
+Get detailed information about remote files and directories:
+
+```{r stat-setup, include = FALSE}
+# Create a subdirectory to demo directory stat
+sftp_mkdir("sftp://vscode@localhost:2222/tmp/sftpr-readme-demo/subdir")
+```
+
+```{r stat-file}
+# Stat a file
+sftp_stat("sftp://vscode@localhost:2222/tmp/sftpr-readme-demo/data.rds")
+```
+
+```{r stat-dir}
+# Stat a directory
+sftp_stat("sftp://vscode@localhost:2222/tmp/sftpr-readme-demo/subdir")
+```
+
+```{r cleanup, include = FALSE}
+# Cleanup
+unlink(test_dir, recursive = TRUE)
+```
+
+## Requirements
+
+- The `sftp` command-line tool must be available in your PATH
+- SSH key authentication configured for passwordless access (recommended)
