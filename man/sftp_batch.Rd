@@ -20,6 +20,10 @@ sftp_batch(
 
 \item{host}{SFTP host}
 
+\item{port}{Optional SFTP port number (default: NULL uses standard port 22)}
+
+\item{ssh_key_path}{Optional path to SSH private key file for authentication}
+
 \item{error_msg}{Error message prefix on failure}
 }
 \value{

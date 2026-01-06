@@ -22,6 +22,8 @@ sftp_parse_url <- function(sftp_url) {
 #' @param commands Character vector of SFTP commands
 #' @param user SFTP username
 #' @param host SFTP host
+#' @param port Optional SFTP port number (default: NULL uses standard port 22)
+#' @param ssh_key_path Optional path to SSH private key file for authentication
 #' @param error_msg Error message prefix on failure
 #' @return Invisible NULL on success, stops with error on failure
 sftp_batch <- function(commands, user, host, port = NULL, ssh_key_path = NULL,
@@ -64,6 +66,7 @@ sftp_batch <- function(commands, user, host, port = NULL, ssh_key_path = NULL,
 #'
 #' @param local_path Path to the local file to upload
 #' @param sftp_url SFTP URL in format: sftp://user@host/path/to/file
+#' @param ssh_key_path Optional path to SSH private key file for authentication
 #' @return Invisible NULL on success, stops with error on failure
 #'
 #' @export
@@ -86,6 +89,7 @@ sftp_put <- function(local_path, sftp_url, ssh_key_path = NULL) {
 #'
 #' @param sftp_url SFTP URL in format: sftp://user@host/path/to/file
 #' @param local_path Path to save the downloaded file
+#' @param ssh_key_path Optional path to SSH private key file for authentication
 #' @return Invisible NULL on success, stops with error on failure
 #'
 #' @export

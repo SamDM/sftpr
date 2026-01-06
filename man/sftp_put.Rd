@@ -10,6 +10,8 @@ sftp_put(local_path, sftp_url, ssh_key_path = NULL)
 \item{local_path}{Path to the local file to upload}
 
 \item{sftp_url}{SFTP URL in format: sftp://user@host/path/to/file}
+
+\item{ssh_key_path}{Optional path to SSH private key file for authentication}
 }
 \value{
 Invisible NULL on success, stops with error on failure

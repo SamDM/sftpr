@@ -1,3 +1,7 @@
 ^\.devcontainer$
 ^LICENSE\.md$
 ^README\.Rmd$
+^\.lintr$
+^\.claude$
+^CLAUDE\.md$
+^README\.html$
