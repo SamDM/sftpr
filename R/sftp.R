@@ -230,6 +230,263 @@ sftp_exists <- function(sftp_url, ssh_key_path = NULL) {
   )
 }
 
+#' Delete a file on an SFTP server
+#'
+#' @param sftp_url SFTP URL in format: sftp://user@host/path/to/file
+#' @param ssh_key_path Optional path to SSH private key file for authentication
+#' @return Invisible NULL on success, stops with error on failure
+#'
+#' @examples
+#' \dontrun{
+#' sftp_delete("sftp://user@host/path/to/file.txt")
+#' }
+#'
+#' @export
+sftp_delete <- function(sftp_url, ssh_key_path = NULL) {
+  parsed <- sftp_parse_url(sftp_url)
+
+  sftp_batch(
+    sprintf("rm %s", parsed$remote_path),
+    parsed$user,
+    parsed$host,
+    parsed$port,
+    ssh_key_path = ssh_key_path,
+    error_msg = "SFTP delete failed"
+  )
+}
+
+#' Create a directory on an SFTP server
+#'
+#' @param sftp_url SFTP URL in format: sftp://user@host/path/to/directory
+#' @param ssh_key_path Optional path to SSH private key file for authentication
+#' @return Invisible NULL on success, stops with error on failure
+#'
+#' @examples
+#' \dontrun{
+#' sftp_mkdir("sftp://user@host/path/to/newdir")
+#' }
+#'
+#' @export
+sftp_mkdir <- function(sftp_url, ssh_key_path = NULL) {
+  parsed <- sftp_parse_url(sftp_url)
+
+  sftp_batch(
+    sprintf("mkdir %s", parsed$remote_path),
+    parsed$user,
+    parsed$host,
+    parsed$port,
+    ssh_key_path = ssh_key_path,
+    error_msg = "SFTP mkdir failed"
+  )
+}
+
+#' Remove a directory on an SFTP server
+#'
+#' @param sftp_url SFTP URL in format: sftp://user@host/path/to/directory
+#' @param ssh_key_path Optional path to SSH private key file for authentication
+#' @return Invisible NULL on success, stops with error on failure
+#'
+#' @examples
+#' \dontrun{
+#' sftp_rmdir("sftp://user@host/path/to/emptydir")
+#' }
+#'
+#' @export
+sftp_rmdir <- function(sftp_url, ssh_key_path = NULL) {
+  parsed <- sftp_parse_url(sftp_url)
+
+  sftp_batch(
+    sprintf("rmdir %s", parsed$remote_path),
+    parsed$user,
+    parsed$host,
+    parsed$port,
+    ssh_key_path = ssh_key_path,
+    error_msg = "SFTP rmdir failed"
+  )
+}
+
+#' Rename or move a file on an SFTP server
+#'
+#' @param from_url SFTP URL of the source file
+#' @param to_url SFTP URL of the destination (must be same host/user as from_url)
+#' @param ssh_key_path Optional path to SSH private key file for authentication
+#' @return Invisible NULL on success, stops with error on failure
+#'
+#' @examples
+#' \dontrun{
+#' sftp_rename("sftp://user@host/old/path.txt", "sftp://user@host/new/path.txt")
+#' }
+#'
+#' @export
+sftp_rename <- function(from_url, to_url, ssh_key_path = NULL) {
+  from_parsed <- sftp_parse_url(from_url)
+  to_parsed <- sftp_parse_url(to_url)
+
+  if (from_parsed$user != to_parsed$user || from_parsed$host != to_parsed$host) {
+    stop("from_url and to_url must have the same user and host")
+  }
+
+  sftp_batch(
+    sprintf("rename %s %s", from_parsed$remote_path, to_parsed$remote_path),
+    from_parsed$user,
+    from_parsed$host,
+    from_parsed$port,
+    ssh_key_path = ssh_key_path,
+    error_msg = "SFTP rename failed"
+  )
+}
+
+#' Change file permissions on an SFTP server
+#'
+#' @param sftp_url SFTP URL in format: sftp://user@host/path/to/file
+#' @param mode Permission mode as octal string (e.g., "755") or integer (e.g., 755)
+#' @param ssh_key_path Optional path to SSH private key file for authentication
+#' @return Invisible NULL on success, stops with error on failure
+#'
+#' @examples
+#' \dontrun{
+#' sftp_chmod("sftp://user@host/path/to/file.txt", "755")
+#' sftp_chmod("sftp://user@host/path/to/file.txt", 644)
+#' }
+#'
+#' @export
+sftp_chmod <- function(sftp_url, mode, ssh_key_path = NULL) {
+  parsed <- sftp_parse_url(sftp_url)
+  mode_str <- as.character(mode)
+
+  if (!grepl("^[0-7]{3,4}$", mode_str)) {
+    stop("mode must be a valid octal permission (e.g., '755' or '0644')")
+  }
+
+  sftp_batch(
+    sprintf("chmod %s %s", mode_str, parsed$remote_path),
+    parsed$user,
+    parsed$host,
+    parsed$port,
+    ssh_key_path = ssh_key_path,
+    error_msg = "SFTP chmod failed"
+  )
+}
+
+#' List files in a directory on an SFTP server
+#'
+#' @param sftp_url SFTP URL in format: sftp://user@host/path/to/directory
+#' @param ssh_key_path Optional path to SSH private key file for authentication
+#' @return Character vector of filenames in the directory
+#'
+#' @examples
+#' \dontrun{
+#' sftp_ls("sftp://user@host/path/to/directory")
+#' }
+#'
+#' @export
+sftp_ls <- function(sftp_url, ssh_key_path = NULL) {
+  parsed <- sftp_parse_url(sftp_url)
+
+  batch_file <- tempfile(fileext = ".sftp")
+  on.exit(unlink(batch_file), add = TRUE)
+
+  writeLines(c(sprintf("ls %s", parsed$remote_path), "bye"), batch_file)
+
+  sftp_args <- c("-b", batch_file)
+  if (!is.null(parsed$port)) {
+    sftp_args <- c(sftp_args, "-P", as.character(parsed$port))
+  }
+  if (!is.null(ssh_key_path)) {
+    sftp_args <- c(sftp_args, "-i", ssh_key_path)
+  }
+  sftp_args <- c(sftp_args, sprintf("%s@%s", parsed$user, parsed$host))
+
+  result <- system2("sftp", args = sftp_args, stdout = TRUE, stderr = TRUE)
+
+  exit_status <- attr(result, "status")
+  if (!is.null(exit_status) && exit_status != 0) {
+    stop(sprintf(
+      "SFTP ls failed (exit code %d):\n%s",
+      exit_status,
+      paste(result, collapse = "\n")
+    ))
+  }
+
+  # Parse output: skip header lines, extract filenames
+  # Output returns full paths, multiple per line separated by whitespace
+  lines <- result[!grepl("^sftp>", result)]
+  lines <- trimws(lines)
+  lines <- lines[nzchar(lines)]
+  # Split each line by whitespace and flatten
+  paths <- unlist(strsplit(lines, "\\s+"))
+  paths <- paths[nzchar(paths)]
+  basename(paths)
+}
+
+#' Get file metadata from an SFTP server
+#'
+#' @param sftp_url SFTP URL in format: sftp://user@host/path/to/file
+#' @param ssh_key_path Optional path to SSH private key file for authentication
+#' @return List with: name, size, mtime, permissions; or NULL if file not found
+#'
+#' @examples
+#' \dontrun{
+#' info <- sftp_stat("sftp://user@host/path/to/file.txt")
+#' info$size
+#' info$mtime
+#' }
+#'
+#' @export
+sftp_stat <- function(sftp_url, ssh_key_path = NULL) {
+  parsed <- sftp_parse_url(sftp_url)
+
+  batch_file <- tempfile(fileext = ".sftp")
+  on.exit(unlink(batch_file), add = TRUE)
+
+  writeLines(c(sprintf("ls -l %s", parsed$remote_path), "bye"), batch_file)
+
+  sftp_args <- c("-b", batch_file)
+  if (!is.null(parsed$port)) {
+    sftp_args <- c(sftp_args, "-P", as.character(parsed$port))
+  }
+  if (!is.null(ssh_key_path)) {
+    sftp_args <- c(sftp_args, "-i", ssh_key_path)
+  }
+  sftp_args <- c(sftp_args, sprintf("%s@%s", parsed$user, parsed$host))
+
+  result <- system2("sftp", args = sftp_args, stdout = TRUE, stderr = TRUE)
+
+  exit_status <- attr(result, "status")
+  if (!is.null(exit_status) && exit_status != 0) {
+    if (grepl("not found|No such file", paste(result, collapse = "\n"), ignore.case = TRUE)) {
+      return(NULL)
+    }
+    stop(sprintf(
+      "SFTP stat failed (exit code %d):\n%s",
+      exit_status,
+      paste(result, collapse = "\n")
+    ))
+  }
+
+  # Parse ls -l output: -rw-r--r--    1 user group  size Mon DD HH:MM filename
+  lines <- result[!grepl("^sftp>", result)]
+  lines <- trimws(lines)
+  lines <- lines[nzchar(lines)]
+
+  if (length(lines) == 0) return(NULL)
+
+  # Find the line with file info (starts with permission string like -rw or drw)
+  info_line <- lines[grepl("^[-dlrwxs]", lines)][1]
+  if (is.na(info_line)) return(NULL)
+
+  parts <- strsplit(info_line, "\\s+")[[1]]
+  # Typical format: perms links user group size month day time name
+  if (length(parts) < 9) return(NULL)
+
+  list(
+    permissions = parts[1],
+    size = as.numeric(parts[5]),
+    mtime = paste(parts[6:8], collapse = " "),
+    name = basename(paste(parts[9:length(parts)], collapse = " "))
+  )
+}
+
 #' Wrap an R function that reads from a file, such that it works over SFTP
 #'
 #' Creates a wrapper around a file-reading function that transparently handles

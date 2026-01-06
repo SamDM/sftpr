@@ -72,3 +72,92 @@ test_that("sftp_reader passes additional arguments to wrapped function", {
   expect_equal(result, c("a", "b"))
 })
 
+test_that("sftp_delete removes remote files", {
+  local_file <- withr::local_tempfile(fileext = ".txt")
+  writeLines("to be deleted", local_file)
+
+  remote_url <- sftp_test_url("delete_test.txt")
+  sftp_put(local_file, remote_url)
+  expect_true(sftp_exists(remote_url))
+
+  sftp_delete(remote_url)
+  expect_false(sftp_exists(remote_url))
+})
+
+test_that("sftp_mkdir, sftp_exists, and sftp_rmdir work for directories", {
+  dir_url <- sftp_test_url("test_subdir")
+
+  sftp_mkdir(dir_url)
+  expect_true(sftp_exists(dir_url))
+
+  sftp_rmdir(dir_url)
+  expect_false(sftp_exists(dir_url))
+})
+
+test_that("sftp_rename moves files", {
+  local_file <- withr::local_tempfile(fileext = ".txt")
+  writeLines("rename me", local_file)
+
+  old_url <- sftp_test_url("rename_old.txt")
+  new_url <- sftp_test_url("rename_new.txt")
+
+  sftp_put(local_file, old_url)
+  sftp_rename(old_url, new_url)
+
+  expect_false(sftp_exists(old_url))
+  expect_true(sftp_exists(new_url))
+
+  # Verify content preserved
+  downloaded <- withr::local_tempfile(fileext = ".txt")
+  sftp_get(new_url, downloaded)
+  expect_equal(readLines(downloaded), "rename me")
+})
+
+test_that("sftp_ls lists directory contents", {
+  # Create a subdirectory with files
+  subdir_url <- sftp_test_url("ls_test_dir")
+  sftp_mkdir(subdir_url)
+
+  local_file <- withr::local_tempfile(fileext = ".txt")
+  writeLines("content", local_file)
+
+  sftp_put(local_file, paste0(subdir_url, "/file1.txt"))
+  sftp_put(local_file, paste0(subdir_url, "/file2.txt"))
+
+  files <- sftp_ls(subdir_url)
+  expect_true("file1.txt" %in% files)
+  expect_true("file2.txt" %in% files)
+})
+
+test_that("sftp_stat returns file metadata", {
+  local_file <- withr::local_tempfile(fileext = ".txt")
+  writeLines("stat test content", local_file)
+
+  remote_url <- sftp_test_url("stat_test.txt")
+  sftp_put(local_file, remote_url)
+
+  info <- sftp_stat(remote_url)
+
+  expect_type(info, "list")
+  expect_true(info$size > 0)
+  expect_true(nzchar(info$permissions))
+  expect_true(nzchar(info$mtime))
+  expect_equal(info$name, "stat_test.txt")
+})
+
+test_that("sftp_chmod changes file permissions", {
+  local_file <- withr::local_tempfile(fileext = ".txt")
+  writeLines("chmod test", local_file)
+
+  remote_url <- sftp_test_url("chmod_test.txt")
+  sftp_put(local_file, remote_url)
+
+  sftp_chmod(remote_url, "644")
+  info1 <- sftp_stat(remote_url)
+  expect_match(info1$permissions, "^-rw-r--r--")
+
+  sftp_chmod(remote_url, "755")
+  info2 <- sftp_stat(remote_url)
+  expect_match(info2$permissions, "^-rwxr-xr-x")
+})
+
