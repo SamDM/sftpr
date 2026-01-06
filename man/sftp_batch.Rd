@@ -27,7 +27,7 @@ sftp_batch(
 \item{error_msg}{Error message prefix on failure}
 }
 \value{
-Invisible NULL on success, stops with error on failure
+Invisible character vector of command output on success, stops with error on failure
 }
 \description{
 Execute an SFTP batch command

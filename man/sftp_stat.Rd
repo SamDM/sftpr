@@ -12,7 +12,7 @@ sftp_stat(sftp_url, ssh_key_path = NULL)
 \item{ssh_key_path}{Optional path to SSH private key file for authentication}
 }
 \value{
-List with: name, size, mtime, permissions; or NULL if file not found
+List with: name, size, mtime, permissions, is_dir; or NULL if not found
 }
 \description{
 Get file metadata from an SFTP server

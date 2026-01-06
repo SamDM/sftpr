@@ -6,6 +6,9 @@
 
 ### Key Features
 - Upload and download files via SFTP using `sftp_put()` and `sftp_get()`
+- File operations: `sftp_delete()`, `sftp_rename()`, `sftp_chmod()`
+- Directory operations: `sftp_mkdir()`, `sftp_rmdir()`, `sftp_ls()`
+- File information: `sftp_stat()`, `sftp_exists()`
 - Parse SFTP URLs with support for optional ports
 - Wrap existing R functions to transparently handle SFTP URLs via `sftp_writer()` and `sftp_reader()`
 - Support for SSH key authentication
@@ -103,8 +106,26 @@ sftpr/
 ## Key Functions
 
 ### Exported Functions (User-Facing)
+
+**File Transfer:**
 - `sftp_put(local_path, sftp_url, ssh_key_path)` - Upload file to SFTP server
 - `sftp_get(sftp_url, local_path, ssh_key_path)` - Download file from SFTP server
+
+**File Operations:**
+- `sftp_delete(sftp_url, ssh_key_path)` - Delete a file on SFTP server
+- `sftp_rename(from_url, to_url, ssh_key_path)` - Rename or move a file
+- `sftp_chmod(sftp_url, mode, ssh_key_path)` - Change file permissions
+
+**Directory Operations:**
+- `sftp_mkdir(sftp_url, ssh_key_path)` - Create a directory
+- `sftp_rmdir(sftp_url, ssh_key_path)` - Remove a directory
+- `sftp_ls(sftp_url, ssh_key_path)` - List directory contents
+
+**File Information:**
+- `sftp_stat(sftp_url, ssh_key_path)` - Get file metadata (size, mtime, permissions)
+- `sftp_exists(sftp_url, ssh_key_path)` - Check if file/directory exists
+
+**Function Wrappers:**
 - `sftp_writer(fn, path_arg)` - Wrap a file-writing function for SFTP support
 - `sftp_reader(fn, path_arg)` - Wrap a file-reading function for SFTP support
 
