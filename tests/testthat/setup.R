@@ -48,5 +48,3 @@ sftp_setup()
 
 # Register cleanup to run after all tests complete
 withr::defer(sftp_cleanup(), teardown_env())
-
-# done
