@@ -200,43 +200,34 @@ sftp_writer <- function(fn, path_arg = NULL) {
 sftp_exists <- function(sftp_url, ssh_key_path = NULL) {
   parsed <- sftp_parse_url(sftp_url)
 
-  batch_file <- tempfile(fileext = ".sftp")
-  on.exit(unlink(batch_file), add = TRUE)
-
-  writeLines(c(sprintf("ls %s", parsed$remote_path), "bye"), batch_file)
-
-  sftp_args <- c("-b", batch_file)
-  if (!is.null(parsed$port)) {
-    sftp_args <- c(sftp_args, "-P", as.character(parsed$port))
-  }
-  if (!is.null(ssh_key_path)) {
-    sftp_args <- c(sftp_args, "-i", ssh_key_path)
-  }
-  sftp_args <- c(sftp_args, sprintf("%s@%s", parsed$user, parsed$host))
-
-  result <- suppressWarnings(system2(
-    "sftp",
-    args = sftp_args,
-    stdout = TRUE,
-    stderr = TRUE
-  ))
-
-  exit_status <- attr(result, "status")
-
-  # Success: file exists
-
-  if (is.null(exit_status) || exit_status == 0) {
-    return(TRUE)
-  }
-
-  # Check if the error is specifically "not found" (file doesn't exist)
-  output <- paste(result, collapse = "\n")
-  if (grepl("not found|No such file", output, ignore.case = TRUE)) {
-    return(FALSE)
-  }
-
-  # Other errors should be raised
-  stop(sprintf("SFTP error (exit code %d):\n%s", exit_status, output))
+  withCallingHandlers(
+    tryCatch(
+      {
+        sftp_batch(
+          sprintf("ls %s", parsed$remote_path),
+          parsed$user,
+          parsed$host,
+          parsed$port,
+          ssh_key_path = ssh_key_path,
+          error_msg = "SFTP exists check failed"
+        )
+        TRUE
+      },
+      error = function(e) {
+        if (grepl("not found|No such file", e$message, ignore.case = TRUE)) {
+          FALSE
+        } else {
+          stop(e)
+        }
+      }
+    ),
+    warning = function(w) {
+      # Suppress "had status 1" warnings from system2 (expected for non-existent files)
+      if (grepl("had status 1", w$message, ignore.case = TRUE)) {
+        invokeRestart("muffleWarning")
+      }
+    }
+  )
 }
 
 #' Wrap an R function that reads from a file, such that it works over SFTP
