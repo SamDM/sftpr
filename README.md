@@ -7,28 +7,37 @@
 <!-- badges: end -->
 
 **sftpr** is an R package that provides wrappers to work with SFTP
-connections. Its killer feature is the ability to wrap any R function
-that reads or writes files, making it transparently work with SFTP URLs.
+connections. Its main feature is the ability to wrap any R function that
+reads or writes files, making it transparently work with SFTP URLs.
 
 ## Installation
 
 You can install the development version of sftpr from
-[GitHub](https://github.com/) with:
+[GitHub](https://github.com/SamDM/sftpr) with:
 
 ``` r
+# Using pak
 # install.packages("pak")
-pak::pak("SamDM/sftpr")
+pak::pkg_install("SamDM/sftpr")
+
+# Using remotes
+# install.packages("remotes")
+remotes::install_github("SamDM/sftpr")
+
+# Using devtools
+# install.packages("devtools")
+devtools::install_github("SamDM/sftpr")
 ```
 
-## The Power of `sftp_reader()` and `sftp_writer()`
+## Wrap file reading/writing functions with `sftp_reader()` and `sftp_writer()`
 
-The main feature of sftpr is wrapping existing R functions to work
-seamlessly with SFTP URLs. You write code as if files were local, and
-sftpr handles the transfer behind the scenes.
+The main feature of sftpr is wrapping existing R functions to work with
+SFTP URLs. You write code as if files were local, and sftpr handles the
+transfer behind the scenes.
 
 ### Creating Wrapped Functions
 
-Wrap any file I/O function once, then use it everywhere:
+Wrap any file I/O function once, then reuse it:
 
 ``` r
 library(sftpr)
@@ -40,7 +49,8 @@ readRDS_sftp <- sftp_reader(readRDS)
 # Use them just like the originals, but with SFTP URLs
 sftp_url <- "sftp://vscode@localhost:2222/tmp/sftpr-readme-demo/data.rds"
 
-invisible(saveRDS_sftp(mtcars, sftp_url))
+saveRDS_sftp(mtcars, sftp_url)
+#> NULL
 remote_data <- readRDS_sftp(sftp_url)
 
 head(remote_data)
@@ -59,12 +69,13 @@ For quick operations, chain the wrapper and call directly:
 
 ``` r
 # Write a CSV to SFTP in one line
-invisible(sftp_writer(write.table)(
+sftp_writer(write.table)(
   iris,
   "sftp://vscode@localhost:2222/tmp/sftpr-readme-demo/iris.csv",
   sep = ",",
   row.names = FALSE
-))
+)
+#> NULL
 
 # Read it back
 iris_remote <- sftp_reader(read.csv)("sftp://vscode@localhost:2222/tmp/sftpr-readme-demo/iris.csv")
@@ -89,8 +100,31 @@ sftp_writer(readr::write_tsv)(df, "sftp://user@host/data.tsv")
 
 # Explicit path argument when needed
 sftp_writer(saveRDS, file)(obj, "sftp://user@host/data.rds")
+sftp_writer(saveRDS, file)(obj, file = "sftp://user@host/data.rds")
 sftp_reader(readRDS, "file")("sftp://user@host/data.rds")
+sftp_reader(readRDS, "file")(file = "sftp://user@host/data.rds")
 ```
+
+### Under the hood
+
+The working principle is very simple.
+
+Running `new_function <- sftp_reader(original_function)` will create a
+new function that:
+
+1.  first downloads the given file using SFTP to a temporary location,
+2.  then executes `original_function` on the downloaded file,
+3.  then removes the temporary file.
+
+Running `new_function <- sfpt_writer(original_function)` works the same,
+it creates a new function that:
+
+1.  first writes to a temporary file using `original_function`,
+2.  then uploads the file using SFTP,
+3.  then removes the temporary file.
+
+All arguments except for the file path are passed on the
+`original_function` without modification.
 
 ## All SFTP Functions
 
@@ -123,7 +157,7 @@ sftp_stat("sftp://vscode@localhost:2222/tmp/sftpr-readme-demo/data.rds")
 #> [1] 1225
 #> 
 #> $mtime
-#> [1] "Jan 6 14:06"
+#> [1] "Jan 6 14:26"
 #> 
 #> $name
 #> [1] "data.rds"
@@ -142,7 +176,7 @@ sftp_stat("sftp://vscode@localhost:2222/tmp/sftpr-readme-demo/subdir")
 #> [1] 4096
 #> 
 #> $mtime
-#> [1] "Jan 6 14:06"
+#> [1] "Jan 6 14:26"
 #> 
 #> $name
 #> [1] "subdir"
