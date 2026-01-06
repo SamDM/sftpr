@@ -26,3 +26,34 @@ test_that("sftp_exists returns FALSE for non-existent files", {
 
   expect_false(sftp_exists(remote_url))
 })
+
+test_that("sftp_writer and sftp_reader round-trip works with writeLines/readLines", {
+  content <- c("line one", "line two", "line three")
+  remote_url <- sftp_test_url("wrapper_roundtrip.txt")
+
+  # Write to SFTP using wrapped writeLines
+  write_lines_sftp <- sftp_writer(writeLines, con)
+  write_lines_sftp(text = content, con = remote_url)
+
+  # Read back using wrapped readLines
+  read_lines_sftp <- sftp_reader(readLines, con)
+  result <- read_lines_sftp(remote_url)
+
+  expect_equal(result, content)
+})
+
+test_that("sftp_reader passes additional arguments to wrapped function", {
+  # Upload a file with more lines
+  local_file <- withr::local_tempfile(fileext = ".txt")
+  writeLines(c("a", "b", "c", "d", "e"), local_file)
+
+  remote_url <- sftp_test_url("reader_args_test.txt")
+  sftp_put(local_file, remote_url)
+
+  # Use readLines with n argument to read only first 2 lines
+  read_lines_sftp <- sftp_reader(readLines, con)
+  result <- read_lines_sftp(remote_url, n = 2)
+
+  expect_equal(result, c("a", "b"))
+})
+

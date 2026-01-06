@@ -179,8 +179,7 @@ sftp_writer <- function(fn, path_arg = NULL) {
     call_args[[path_arg]] <- temp_file
     result <- rlang::exec(fn, !!!call_args)
 
-    # Pass original file_path and any other args from ... to sftp_put
-    sftp_put(temp_file, file_path, ...)
+    sftp_put(temp_file, file_path)
     result
   }
 }
