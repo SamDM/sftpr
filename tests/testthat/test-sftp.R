@@ -182,3 +182,53 @@ test_that("sftp_chmod changes file permissions", {
   expect_match(info2$permissions, "^-rwxr-xr-x")
 })
 
+test_that("all sftp functions work with spaces in path components", {
+  local_file <- withr::local_tempfile(fileext = ".txt")
+  writeLines("space test", local_file)
+
+  # Use a directory name with a space in it
+  dir_url <- sftp_test_url("dir with spaces")
+  file_url <- paste0(dir_url, "/file.txt")
+  renamed_url <- paste0(dir_url, "/renamed.txt")
+
+  # since remote == local we can use local paths to double check
+  # which files/dirs exist
+  dir_path <- sftp_parse_url(dir_url)$remote_path
+  file_path <- sftp_parse_url(file_url)$remote_path
+  renamed_path <- sftp_parse_url(renamed_url)$remote_path
+
+  sftp_mkdir(dir_url)
+  expect_true(sftp_exists(dir_url))
+  expect_true(dir.exists(dir_path))
+
+  sftp_put(local_file, file_url)
+  expect_true(sftp_exists(file_url))
+  expect_true(file.exists(file_path))
+
+  downloaded <- withr::local_tempfile(fileext = ".txt")
+  sftp_get(file_url, downloaded)
+  expect_equal(readLines(downloaded), "space test")
+
+  expect_equal(sftp_stat(file_url)$name, "file.txt")
+
+  files <- sftp_ls(dir_url)
+  expect_true("file.txt" %in% files)
+
+  sftp_chmod(file_url, "644")
+  expect_match(sftp_stat(file_url)$permissions, "^-rw-r--r--")
+
+  sftp_rename(file_url, renamed_url)
+  expect_false(sftp_exists(file_url))
+  expect_false(file.exists(file_path))
+  expect_true(sftp_exists(renamed_url))
+  expect_true(file.exists(renamed_path))
+
+  sftp_delete(renamed_url)
+  expect_false(sftp_exists(renamed_url))
+  expect_false(file.exists(renamed_path))
+
+  sftp_rmdir(dir_url)
+  expect_false(sftp_exists(dir_url))
+  expect_false(dir.exists(dir_path))
+})
+

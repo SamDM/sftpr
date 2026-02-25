@@ -62,6 +62,11 @@ sftp_batch <- function(commands, user, host, port = NULL, ssh_key_path = NULL,
   invisible(result)
 }
 
+# Quote a path for use in an SFTP batch file command
+.sftp_quote <- function(path) {
+  sprintf('"%s"', gsub('"', '\\\\"', path))
+}
+
 #' Upload a local file to an SFTP server
 #'
 #' @param local_path Path to the local file to upload
@@ -76,7 +81,7 @@ sftp_put <- function(local_path, sftp_url, ssh_key_path = NULL) {
   parsed <- sftp_parse_url(sftp_url)
 
   sftp_batch(
-    sprintf("put %s %s", local_path, parsed$remote_path),
+    sprintf("put %s %s", .sftp_quote(local_path), .sftp_quote(parsed$remote_path)),
     parsed$user,
     parsed$host,
     parsed$port,
@@ -97,7 +102,7 @@ sftp_get <- function(sftp_url, local_path, ssh_key_path = NULL) {
   parsed <- sftp_parse_url(sftp_url)
 
   sftp_batch(
-    sprintf("get %s %s", parsed$remote_path, local_path),
+    sprintf("get %s %s", .sftp_quote(parsed$remote_path), .sftp_quote(local_path)),
     parsed$user,
     parsed$host,
     parsed$port,
@@ -250,7 +255,7 @@ sftp_delete <- function(sftp_url, ssh_key_path = NULL) {
   parsed <- sftp_parse_url(sftp_url)
 
   sftp_batch(
-    sprintf("rm %s", parsed$remote_path),
+    sprintf("rm %s", .sftp_quote(parsed$remote_path)),
     parsed$user,
     parsed$host,
     parsed$port,
@@ -275,7 +280,7 @@ sftp_mkdir <- function(sftp_url, ssh_key_path = NULL) {
   parsed <- sftp_parse_url(sftp_url)
 
   sftp_batch(
-    sprintf("mkdir %s", parsed$remote_path),
+    sprintf("mkdir %s", .sftp_quote(parsed$remote_path)),
     parsed$user,
     parsed$host,
     parsed$port,
@@ -300,7 +305,7 @@ sftp_rmdir <- function(sftp_url, ssh_key_path = NULL) {
   parsed <- sftp_parse_url(sftp_url)
 
   sftp_batch(
-    sprintf("rmdir %s", parsed$remote_path),
+    sprintf("rmdir %s", .sftp_quote(parsed$remote_path)),
     parsed$user,
     parsed$host,
     parsed$port,
@@ -331,7 +336,8 @@ sftp_rename <- function(from_url, to_url, ssh_key_path = NULL) {
   }
 
   sftp_batch(
-    sprintf("rename %s %s", from_parsed$remote_path, to_parsed$remote_path),
+    sprintf("rename %s %s",
+            .sftp_quote(from_parsed$remote_path), .sftp_quote(to_parsed$remote_path)),
     from_parsed$user,
     from_parsed$host,
     from_parsed$port,
@@ -363,7 +369,7 @@ sftp_chmod <- function(sftp_url, mode, ssh_key_path = NULL) {
   }
 
   sftp_batch(
-    sprintf("chmod %s %s", mode_str, parsed$remote_path),
+    sprintf("chmod %s %s", mode_str, .sftp_quote(parsed$remote_path)),
     parsed$user,
     parsed$host,
     parsed$port,
@@ -388,7 +394,7 @@ sftp_ls <- function(sftp_url, ssh_key_path = NULL) {
   parsed <- sftp_parse_url(sftp_url)
 
   result <- sftp_batch(
-    commands = sprintf("ls %s", parsed$remote_path),
+    commands = sprintf("ls %s", .sftp_quote(parsed$remote_path)),
     user = parsed$user,
     host = parsed$host,
     port = parsed$port,
@@ -429,7 +435,7 @@ sftp_stat <- function(sftp_url, ssh_key_path = NULL) {
   result <- withCallingHandlers(
     tryCatch(
       sftp_batch(
-        commands = sprintf("ls -l %s", parsed$remote_path),
+        commands = sprintf("ls -l %s", .sftp_quote(parsed$remote_path)),
         user = parsed$user,
         host = parsed$host,
         port = parsed$port,
@@ -467,7 +473,7 @@ sftp_stat <- function(sftp_url, ssh_key_path = NULL) {
     result <- withCallingHandlers(
       tryCatch(
         sftp_batch(
-          commands = sprintf("ls -l %s/..", parsed$remote_path),
+          commands = sprintf("ls -l %s/..", .sftp_quote(parsed$remote_path)),
           user = parsed$user,
           host = parsed$host,
           port = parsed$port,
@@ -534,7 +540,7 @@ sftp_exists <- function(sftp_url, ssh_key_path = NULL) {
     tryCatch(
       {
         sftp_batch(
-          sprintf("ls %s", parsed$remote_path),
+          sprintf("ls %s", .sftp_quote(parsed$remote_path)),
           parsed$user,
           parsed$host,
           parsed$port,
