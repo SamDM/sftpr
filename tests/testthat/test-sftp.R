@@ -191,11 +191,19 @@ test_that("all sftp functions work with spaces in path components", {
   file_url <- paste0(dir_url, "/file.txt")
   renamed_url <- paste0(dir_url, "/renamed.txt")
 
+  # since remote == local we can use local paths to double check
+  # which files/dirs exist
+  dir_path <- sftp_parse_url(dir_url)$remote_path
+  file_path <- sftp_parse_url(file_url)$remote_path
+  renamed_path <- sftp_parse_url(renamed_url)$remote_path
+
   sftp_mkdir(dir_url)
   expect_true(sftp_exists(dir_url))
+  expect_true(dir.exists(dir_path))
 
   sftp_put(local_file, file_url)
   expect_true(sftp_exists(file_url))
+  expect_true(file.exists(file_path))
 
   downloaded <- withr::local_tempfile(fileext = ".txt")
   sftp_get(file_url, downloaded)
@@ -211,12 +219,16 @@ test_that("all sftp functions work with spaces in path components", {
 
   sftp_rename(file_url, renamed_url)
   expect_false(sftp_exists(file_url))
+  expect_false(file.exists(file_path))
   expect_true(sftp_exists(renamed_url))
+  expect_true(file.exists(renamed_path))
 
   sftp_delete(renamed_url)
   expect_false(sftp_exists(renamed_url))
+  expect_false(file.exists(renamed_path))
 
   sftp_rmdir(dir_url)
   expect_false(sftp_exists(dir_url))
+  expect_false(dir.exists(dir_path))
 })
 
